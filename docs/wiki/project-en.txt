@@ -17,3 +17,13 @@ Planned checks include key/certificate matching, chain handling, protected passw
 Planned distribution contains one executable and README.txt: ZIP for Windows, tar.gz for Linux. No separate manpage, MSI/DEB or system-wide PATH change.
 
 [[:en:projects:start|Project overview]]
+
+===== Preview 0.1.0 preview 1 =====
+
+The first preview is published.
+
+  * [[https://bbs.disconnected-by-peer.at/windows/mpemtrans/|Windows downloads]]: x86/x64, statically linked OpenSSL.
+  * [[https://bbs.disconnected-by-peer.at/linux/mpemtrans/|Linux downloads]]: amd64/i386/arm64/armhf, system OpenSSL 3.
+  * [[https://github.com/geosone/mpemtrans/releases/tag/v0.1.0-preview.1|GitHub release, source, checksums and test report]].
+
+Each archive contains only the executable and README. Native Windows 10 x86/x64 conversion tests with cryptlib 3.4.5 and Linux amd64 tests with 3.4.5/3.4.9.6 passed, including fullchain, encrypted PKCS#8 input, automatic library discovery and overwrite protection. Other Linux architectures passed startup tests on Debian 12/13 and Ubuntu 24.04/26.04. i386 uses 32-bit libraries on an amd64 kernel for these tests. Full native Mystic handshake qualification remains pending.

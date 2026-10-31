@@ -17,3 +17,13 @@ Geplant sind Prüfung von Schlüssel/Zertifikat und Kette, geschützte Passworte
 Die spätere Auslieferung besteht aus einer ausführbaren Datei und README.txt: ZIP für Windows, tar.gz für Linux. Keine zusätzliche Manpage, kein MSI/DEB und kein systemweiter PATH-Eintrag.
 
 [[:de:projects:start|Zur Projektübersicht]]
+
+===== Vorabversion 0.1.0 preview 1 =====
+
+Die erste Vorabversion ist veröffentlicht.
+
+  * [[https://bbs.disconnected-by-peer.at/windows/mpemtrans/|Windows-Downloads]]: x86/x64, OpenSSL statisch eingebunden.
+  * [[https://bbs.disconnected-by-peer.at/linux/mpemtrans/|Linux-Downloads]]: amd64/i386/arm64/armhf, systemweites OpenSSL 3.
+  * [[https://github.com/geosone/mpemtrans/releases/tag/v0.1.0-preview.1|GitHub-Release, Quellen, Prüfsummen und Testbericht]].
+
+Die Archive enthalten jeweils nur Programm und README. Native Windows-10-Konvertierungstests für x86/x64 mit cryptlib 3.4.5 sowie Linux-amd64-Tests mit 3.4.5 und 3.4.9.6 sind erfolgreich, einschließlich Fullchain, verschlüsseltem PKCS#8-Schlüssel, automatischer Bibliothekssuche und Überschreibschutz. Die anderen Linux-Architekturen haben Starttests auf Debian 12/13 und Ubuntu 24.04/26.04 bestanden. i386 wurde dabei mit 32-Bit-Bibliotheken auf einem amd64-Kernel getestet. Die vollständige Mystic-Handshake-Freigabe bleibt offen.
