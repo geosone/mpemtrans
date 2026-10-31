@@ -6,8 +6,9 @@ permission is retained in the C header and LICENSE.
 
 Status: development prototype. The Linux converter has created and reopened
 synthetic RSA keysets with cryptlib 3.4.5 and the tested generic 3.4.9.6 build.
-Windows qualification, complete chain tests and native Mystic handshake tests
-are still required. Published preview archives are not production-qualified releases.
+Native Windows qualification and native Mystic handshake tests
+are tracked separately in each release report. Synthetic single-certificate,
+fullchain and encrypted PKCS#8 conversion tests are included in the test suite. Published preview archives are not production-qualified releases.
 
 ## What it does
 

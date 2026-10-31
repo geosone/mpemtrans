@@ -238,7 +238,9 @@ static unsigned char *certificate_data(const char *path, EVP_PKEY *key, int *len
         *length = i2d_X509(sk_X509_value(certificates, 0), NULL);
     } else {
         bag = PKCS7_new();
-        if (!bag || !PKCS7_set_type(bag, NID_pkcs7_signed) || !PKCS7_content_new(bag, NID_pkcs7_data)) goto cleanup;
+        if (!bag || !PKCS7_set_type(bag, NID_pkcs7_signed) || !PKCS7_content_new(bag, NID_pkcs7_data) || !PKCS7_set_detached(bag, 1)) goto cleanup;
+        /* A certificate-only PKCS#7 bag has detached content. An empty
+         * encapsulated data OCTET STRING is rejected by older cryptlib. */
         for (i = 0; i < count; i++) if (!PKCS7_add_certificate(bag, sk_X509_value(certificates, i))) goto cleanup;
         *length = i2d_PKCS7(bag, NULL);
     }

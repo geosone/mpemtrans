@@ -28,6 +28,19 @@ with tempfile.TemporaryDirectory(prefix='mpemtrans-test-') as directory:
     wrong_key = root / 'wrong-key.pem'
     wrong_cert = root / 'wrong-cert.pem'
     openssl('req', '-new', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', str(wrong_key), '-out', str(wrong_cert), '-subj', '/CN=unrelated', '-days', '1')
+    ca_key = root / 'ca-key.pem'
+    ca_cert = root / 'ca.pem'
+    request = root / 'leaf.csr'
+    leaf = root / 'leaf.pem'
+    chain = root / 'fullchain.pem'
+    encrypted = root / 'encrypted.pem'
+    openssl('pkey', '-in', str(key), '-aes-256-cbc', '-passout', 'file:' + str(password), '-out', str(encrypted))
+    openssl('req', '-new', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', str(ca_key), '-out', str(ca_cert), '-subj', '/CN=Test CA', '-days', '1', '-addext', 'basicConstraints=critical,CA:TRUE', '-addext', 'keyUsage=critical,keyCertSign,cRLSign')
+    openssl('req', '-new', '-key', str(key), '-out', str(request), '-subj', '/CN=localhost')
+    extensions = root / 'extensions.txt'
+    extensions.write_text('basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\n')
+    openssl('x509', '-req', '-in', str(request), '-CA', str(ca_cert), '-CAkey', str(ca_key), '-CAcreateserial', '-out', str(leaf), '-days', '1', '-extfile', str(extensions))
+    chain.write_bytes(leaf.read_bytes() + ca_cert.read_bytes())
     for index, library in enumerate(libraries):
         output = root / ('result-' + str(index) + '.p15')
         command = [str(exe), '--library', library, '--key', str(key), '--cert', str(cert), '--out', str(output), '--label', 'ssl_cert', '--password-file', str(password)]
@@ -64,6 +77,12 @@ with tempfile.TemporaryDirectory(prefix='mpemtrans-test-') as directory:
             relative[relative.index('--library') + 1] = 'libcl.so'
             result = subprocess.run(relative, capture_output=True)
             assert result.returncode != 0 and b'absolute path' in result.stderr
+        fullchain_command = command.copy()
+        fullchain_command[fullchain_command.index('--key') + 1] = str(encrypted)
+        fullchain_command[fullchain_command.index('--cert') + 1] = str(chain)
+        fullchain_command[fullchain_command.index('--out') + 1] = str(root / ('fullchain-' + str(index) + '.p15'))
+        fullchain_command += ['--input-password-file', str(password)]
+        subprocess.run(fullchain_command, check=True)
         before = output.read_bytes()
         result = subprocess.run(command, capture_output=True)
         assert result.returncode != 0 and output.read_bytes() == before
@@ -75,4 +94,4 @@ with tempfile.TemporaryDirectory(prefix='mpemtrans-test-') as directory:
         assert result.returncode != 0 and not mismatch.exists()
         assert password.read_bytes() not in result.stdout + result.stderr
         assert not list(root.glob('.mpemtrans-*'))
-print('PASS synthetic RSA conversion/reopen, owner-only output, overwrite refusal, key mismatch and staging cleanup for all supplied libraries.')
+print('PASS synthetic RSA single/fullchain conversion, encrypted PKCS8/reopen, owner-only output, overwrite refusal, key mismatch and staging cleanup for all supplied libraries.')
