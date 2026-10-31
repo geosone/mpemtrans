@@ -1,0 +1,67 @@
+name: Linux OpenSSL 3 portable builds
+on:
+  push:
+    paths-ignore: ['docs/**', '**.md', '.github/workflows/windows.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: i386
+            platform: linux/386
+          - arch: arm64
+            platform: linux/arm64
+          - arch: armhf
+            platform: linux/arm/v7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: cryptlib/cryptlib
+          ref: 6d94f880897ceaa1f833a2f94df51321f983b87e
+          path: build-tools/cryptlib
+      - uses: docker/setup-qemu-action@v3
+      - name: Build on oldest supported distribution
+        run: |
+          mkdir -p release
+          docker run --rm --platform '${{ matrix.platform }}' -v "$PWD:/work" -w /work debian:bookworm-slim sh -ec '
+            apt-get update
+            apt-get install -y --no-install-recommends build-essential libssl-dev ca-certificates
+            make CRYPTLIB_INCLUDE=/work/build-tools/cryptlib
+            ./build/mpemtrans --help
+            ldd build/mpemtrans > release/linux-dependencies.txt
+            mkdir -p release/archive
+            cp build/mpemtrans release/archive/
+            cat README.md LICENSE > release/archive/README.txt
+            tar -czf release/mpemtrans-linux-${{ matrix.arch }}-development.tar.gz -C release/archive mpemtrans README.txt
+          '
+      - name: Test identical executable on supported systems
+        run: |
+          for image in debian:bookworm-slim debian:trixie-slim ubuntu:24.04 ubuntu:26.04; do
+            platform='${{ matrix.platform }}'
+            if [ '${{ matrix.arch }}' = i386 ]; then platform=linux/amd64; fi
+            docker run --rm --platform "$platform" -e TARGET_ARCH='${{ matrix.arch }}' -v "$PWD/release/archive:/test:ro" "$image" sh -ec '
+              if [ "$TARGET_ARCH" = i386 ]; then
+                dpkg --add-architecture i386
+                apt-get update
+                apt-get install -y --no-install-recommends libssl-dev:i386
+              else
+                apt-get update
+                apt-get install -y --no-install-recommends libssl-dev
+              fi
+              /test/mpemtrans --help
+            '
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mpemtrans-linux-${{ matrix.arch }}-development
+          path: |
+            release/mpemtrans-linux-*-development.tar.gz
+            release/linux-dependencies.txt

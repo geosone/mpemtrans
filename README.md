@@ -7,7 +7,7 @@ permission is retained in the C header and LICENSE.
 Status: development prototype. The Linux converter has created and reopened
 synthetic RSA keysets with cryptlib 3.4.5 and the tested generic 3.4.9.6 build.
 Windows qualification, complete chain tests and native Mystic handshake tests
-are still required. There is no production-qualified release yet.
+are still required. Published preview archives are not production-qualified releases.
 
 ## What it does
 
@@ -29,7 +29,7 @@ binary. Always select the intended library explicitly.
 
 ## Linux
 
-The planned tar.gz contains only `mpemtrans` and `README.txt`. Extract beside
+The Linux tar.gz contains only `mpemtrans` and `README.txt`. Extract beside
 Mystic, normally `/opt/mystic`, or another chosen location. No DEB installation,
 PATH update or separate manpage is needed. The target cryptlib is an external
 prerequisite; it is not bundled or replaced by this tool.
@@ -66,7 +66,7 @@ no interactive prompt is issued.
 
 ## Windows
 
-The planned ZIP contains only `mpemtrans.exe` and `README.txt`. Extract into a
+The Windows ZIP contains only `mpemtrans.exe` and `README.txt`. Extract into a
 chosen short ASCII path, normally `C:\Mystic`. There is no MSI or global PATH
 change. Use the cryptlib DLL matching the executable architecture; existing
 Mystic x86/x64 builds conventionally use `cl32.dll` / `cl64.dll` respectively.
