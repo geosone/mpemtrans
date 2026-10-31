@@ -18,12 +18,18 @@ Planned distribution contains one executable and README.txt: ZIP for Windows, ta
 
 [[:en:projects:start|Project overview]]
 
-===== Preview 0.1.0 preview 1 =====
+===== Preview 0.1.0 preview 2 =====
 
 The first preview is published.
 
   * [[https://bbs.disconnected-by-peer.at/windows/mpemtrans/|Windows downloads]]: x86/x64, statically linked OpenSSL.
   * [[https://bbs.disconnected-by-peer.at/linux/mpemtrans/|Linux downloads]]: amd64/i386/arm64/armhf, system OpenSSL 3.
-  * [[https://github.com/geosone/mpemtrans/releases/tag/v0.1.0-preview.1|GitHub release, source, checksums and test report]].
+  * [[https://github.com/geosone/mpemtrans/releases/tag/v0.1.0-preview.2|GitHub release, source, checksums and test report]].
 
-Each archive contains only the executable and README. Native Windows 10 x86/x64 conversion tests with cryptlib 3.4.5 and Linux amd64 tests with 3.4.5/3.4.9.6 passed, including fullchain, encrypted PKCS#8 input, automatic library discovery and overwrite protection. Other Linux architectures passed startup tests on Debian 12/13 and Ubuntu 24.04/26.04. i386 uses 32-bit libraries on an amd64 kernel for these tests. Full native Mystic handshake qualification remains pending.
+Each archive contains only the executable and README. Native Windows 10 x86/x64 conversion tests with cryptlib 3.4.5 and Linux amd64 tests with 3.4.5/3.4.9.6 passed, including fullchain, encrypted PKCS#8 input, automatic library discovery and overwrite protection. Other Linux architectures passed startup tests on Debian 12/13 and Ubuntu 24.04/26.04. i386 uses 32-bit libraries on an amd64 kernel for these tests. Native Linux Mystic A49 BinkP TLS 1.2 with cryptlib 3.4.5 passed: exact converted leaf, CA/hostname checks, encrypted BinkP framing and unchanged keyset. Other native Mystic protocol/platform combinations require separate qualification.
+
+===== BinkP TLS =====
+
+Preview 2 fixes the minimum-length check for A49's short fixed native keyset password; preview 1 was incompatible with it. Password files remain protected and their contents are not printed.
+
+[[https://github.com/geosone/mpemtrans/blob/master/docs/mystic-binkp-qualification.md|Documentation and reproducible isolated test]]
