@@ -48,8 +48,11 @@ not put the password directly on the command line.
   --password-file output-password.txt
 ```
 
-On Linux, `--library` is optional. Without it, the system loader searches for
-`libcl.so`, `libcl.so.3`, `libcl.so.3.4.5`, then `libcl.so.3.4.9`, in that order.
+On Linux, `--library` is optional. Without it, the directory of the actual executable
+(resolved through `/proc/self/exe`, including when invoked through a symlink)
+is searched first for `libcl.so`, `libcl.so.3`, `libcl.so.3.4.5`, then
+`libcl.so.3.4.9`. Only after those local names are absent does discovery use
+the same names through the system loader's configured library paths.
 The first located library must pass the API/version checks; an incompatible
 installation does not trigger silent switching. The working directory is not
 scanned. Normal loader configuration, including an explicitly configured

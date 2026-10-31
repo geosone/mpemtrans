@@ -1,6 +1,7 @@
 """Synthetic certificates only; caller supplies isolated test libraries."""
 import os
 import pathlib
+import shutil
 import secrets
 import subprocess
 import sys
@@ -43,6 +44,22 @@ with tempfile.TemporaryDirectory(prefix='mpemtrans-test-') as directory:
             (loader_dir / 'libcl.so').symlink_to(library)
             env = dict(os.environ, LD_LIBRARY_PATH=str(loader_dir))
             subprocess.run(auto, check=True, env=env)
+            local_dir = root / ('local-' + str(index))
+            local_dir.mkdir()
+            local_exe = local_dir / 'mpemtrans'
+            shutil.copy2(exe, local_exe)
+            (local_dir / 'libcl.so').symlink_to(library)
+            # A located non-cryptlib in the loader path would fail API checks.
+            # Success proves the executable-local library was preferred.
+            invalid_loader = root / ('invalid-loader-' + str(index))
+            invalid_loader.mkdir()
+            libc = pathlib.Path('/lib/x86_64-linux-gnu/libc.so.6')
+            if libc.exists():
+                (invalid_loader / 'libcl.so').symlink_to(libc)
+            local = auto.copy()
+            local[0] = str(local_exe)
+            local[local.index('--out') + 1] = str(root / ('local-result-' + str(index) + '.p15'))
+            subprocess.run(local, check=True, cwd=root, env=dict(os.environ, LD_LIBRARY_PATH=str(invalid_loader)))
             relative = command.copy()
             relative[relative.index('--library') + 1] = 'libcl.so'
             result = subprocess.run(relative, capture_output=True)

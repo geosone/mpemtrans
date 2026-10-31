@@ -109,13 +109,30 @@ static int load_installed_library(void) {
     return 0;
 }
 #else
-/* Ask the system loader for installed SONAMEs; never scan the working folder.
+/* Search beside the real executable first, then ask the system loader.
+ * Never infer the executable directory from the current working folder.
  * Prefer the package-selected link. A located but incompatible library is an
  * error rather than permission to silently choose a different implementation.
  * Explicit --library bypasses discovery and must remain an absolute path. */
 static int load_installed_library(void) {
     const char *names[] = { "libcl.so", "libcl.so.3", "libcl.so.3.4.5", "libcl.so.3.4.9" };
     size_t index;
+    char executable[4096];
+    char path[4096];
+    char *separator;
+    ssize_t length = readlink("/proc/self/exe", executable, sizeof(executable) - 1);
+    if (length > 0 && (size_t)length < sizeof(executable) - 1) {
+        executable[length] = '\0';
+        separator = strrchr(executable, '/');
+        if (separator) {
+            *(separator + 1) = '\0';
+            for (index = 0; index < sizeof(names) / sizeof(names[0]); index++) {
+                if (snprintf(path, sizeof(path), "%s%s", executable, names[index]) >= (int)sizeof(path)) continue;
+                if (load_library(path)) return 1;
+                if (library) return 0;
+            }
+        }
+    }
     for (index = 0; index < sizeof(names) / sizeof(names[0]); index++) {
         if (load_library(names[index])) return 1;
         if (library) return 0;
@@ -292,7 +309,7 @@ int main(int argc, char **argv) {
     memset(&components, 0, sizeof(components));
     if (argc == 2 && !strcmp(argv[1], "--help")) {
         puts("mpemtrans [--library ABSOLUTE_LIBRARY] --key PEM --cert FULLCHAIN_PEM --out NEW_KEYSET --label NAME --password-file FILE [--input-password-file FILE]");
-        puts("Linux: --library is optional; installed libcl is discovered through the system loader. Windows: searches beside the EXE, then the Windows system directory.");
+        puts("Linux: searches beside the executable, then through the system loader. Windows: searches beside the EXE, then the Windows system directory.");
         puts("RSA 2048-4096; PKCS#1/PKCS#8 input; cryptlib 3.4.5 and 3.4.9 profiles. No existing output is replaced.");
         return 0;
     }
