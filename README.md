@@ -48,7 +48,15 @@ not put the password directly on the command line.
   --password-file output-password.txt
 ```
 
-The library path must be absolute. Select a tested newer cryptlib with the same
+On Linux, `--library` is optional. Without it, the system loader searches for
+`libcl.so`, `libcl.so.3`, `libcl.so.3.4.5`, then `libcl.so.3.4.9`, in that order.
+The first located library must pass the API/version checks; an incompatible
+installation does not trigger silent switching. The working directory is not
+scanned. Normal loader configuration, including an explicitly configured
+`LD_LIBRARY_PATH`, applies. If loading fails, the error asks for an explicit
+`--library /absolute/path/to/library`. Windows discovery is described below.
+
+An explicit library path must be absolute. Select a tested newer cryptlib with the same
 option when preparing a keyset for that version. If an input PEM is encrypted,
 provide its separate protected file with `--input-password-file FILE`; otherwise
 no interactive prompt is issued.
@@ -59,6 +67,11 @@ The planned ZIP contains only `mpemtrans.exe` and `README.txt`. Extract into a
 chosen short ASCII path, normally `C:\Mystic`. There is no MSI or global PATH
 change. Use the cryptlib DLL matching the executable architecture; existing
 Mystic x86/x64 builds conventionally use `cl32.dll` / `cl64.dll` respectively.
+Without `--library`, Windows searches for `cl32.dll` (x86) or `cl64.dll`
+(x64) beside `mpemtrans.exe`, then in the Windows system directory returned by
+`GetSystemDirectory`. It does not search the working directory or PATH. The
+first located library must pass qualification; `--library` selects an explicit
+absolute path instead. If loading fails, the error asks for that option.
 Do not copy a different DLL over a working Mystic library to test this tool.
 
 Example from PowerShell:

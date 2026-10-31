@@ -34,6 +34,19 @@ with tempfile.TemporaryDirectory(prefix='mpemtrans-test-') as directory:
         assert output.stat().st_size > 0
         if os.name != 'nt':
             assert output.stat().st_mode & 0o077 == 0
+        if os.name != 'nt':
+            auto = command.copy()
+            del auto[1:3]
+            auto[auto.index('--out') + 1] = str(root / ('auto-' + str(index) + '.p15'))
+            loader_dir = root / ('loader-' + str(index))
+            loader_dir.mkdir()
+            (loader_dir / 'libcl.so').symlink_to(library)
+            env = dict(os.environ, LD_LIBRARY_PATH=str(loader_dir))
+            subprocess.run(auto, check=True, env=env)
+            relative = command.copy()
+            relative[relative.index('--library') + 1] = 'libcl.so'
+            result = subprocess.run(relative, capture_output=True)
+            assert result.returncode != 0 and b'absolute path' in result.stderr
         before = output.read_bytes()
         result = subprocess.run(command, capture_output=True)
         assert result.returncode != 0 and output.read_bytes() == before

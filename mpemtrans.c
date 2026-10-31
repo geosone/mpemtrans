@@ -69,7 +69,6 @@ static int load_library(const char *path) {
 #define LOAD_API(member, symbol, signature) \
     api.member = (int (CALL *) signature)GetProcAddress(library, #symbol); if (!api.member) return 0;
 #else
-    if (path[0] != '/') return 0;
     library = dlopen(path, RTLD_NOW | RTLD_LOCAL);
 #define LOAD_API(member, symbol, signature) \
     *(void **)(&api.member) = dlsym(library, #symbol); if (!api.member) return 0;
@@ -79,6 +78,51 @@ static int load_library(const char *path) {
 #undef LOAD_API
     return 1;
 }
+
+#ifdef _WIN32
+/* Only inspect the executable directory and the Windows system directory.
+ * Avoid the current working directory and PATH for automatic DLL loading. */
+static int load_installed_library(void) {
+    char path[MAX_PATH];
+    char *separator;
+    DWORD length;
+#ifdef _WIN64
+    const char *name = "cl64.dll";
+#else
+    const char *name = "cl32.dll";
+#endif
+    length = GetModuleFileNameA(NULL, path, sizeof(path));
+    if (length && length < sizeof(path)) {
+        separator = strrchr(path, '\\');
+        if (separator && (size_t)(separator - path + 1) + strlen(name) < sizeof(path)) {
+            strcpy(separator + 1, name);
+            if (load_library(path)) return 1;
+            if (library) return 0;
+        }
+    }
+    length = GetSystemDirectoryA(path, sizeof(path));
+    if (length && length + 1 + strlen(name) < sizeof(path)) {
+        strcat(path, "\\");
+        strcat(path, name);
+        if (load_library(path)) return 1;
+    }
+    return 0;
+}
+#else
+/* Ask the system loader for installed SONAMEs; never scan the working folder.
+ * Prefer the package-selected link. A located but incompatible library is an
+ * error rather than permission to silently choose a different implementation.
+ * Explicit --library bypasses discovery and must remain an absolute path. */
+static int load_installed_library(void) {
+    const char *names[] = { "libcl.so", "libcl.so.3", "libcl.so.3.4.5", "libcl.so.3.4.9" };
+    size_t index;
+    for (index = 0; index < sizeof(names) / sizeof(names[0]); index++) {
+        if (load_library(names[index])) return 1;
+        if (library) return 0;
+    }
+    return 0;
+}
+#endif
 
 static int supported_library(void) {
     int major = 0, minor = 0, step = 0;
@@ -247,7 +291,8 @@ int main(int argc, char **argv) {
 #endif
     memset(&components, 0, sizeof(components));
     if (argc == 2 && !strcmp(argv[1], "--help")) {
-        puts("mpemtrans --library ABSOLUTE_LIBRARY --key PEM --cert FULLCHAIN_PEM --out NEW_KEYSET --label NAME --password-file FILE [--input-password-file FILE]");
+        puts("mpemtrans [--library ABSOLUTE_LIBRARY] --key PEM --cert FULLCHAIN_PEM --out NEW_KEYSET --label NAME --password-file FILE [--input-password-file FILE]");
+        puts("Linux: --library is optional; installed libcl is discovered through the system loader. Windows: searches beside the EXE, then the Windows system directory.");
         puts("RSA 2048-4096; PKCS#1/PKCS#8 input; cryptlib 3.4.5 and 3.4.9 profiles. No existing output is replaced.");
         return 0;
     }
@@ -264,8 +309,14 @@ int main(int argc, char **argv) {
         else goto cleanup;
 #undef OPTION
     }
-    if (!library_path || !key_path || !cert_path || !output || !label || !password_path ||
+    if (!key_path || !cert_path || !output || !label || !password_path ||
         !strlen(label) || strlen(label) > 64 || strlen(output) > 3800) goto cleanup;
+#ifndef _WIN32
+    if (library_path && library_path[0] != '/') {
+        fprintf(stderr, "mpemtrans: --library requires an absolute path.\n");
+        goto cleanup;
+    }
+#endif
     stage = "existing output refusal";
     if (!stat(output, &existing)) goto cleanup;
     stage = "protected password input";
@@ -282,7 +333,15 @@ int main(int argc, char **argv) {
     cert_data = certificate_data(cert_path, key, &cert_length);
     if (!cert_data) goto cleanup;
     stage = "cryptlib loading/version qualification";
-    if (!load_library(library_path) || api.init() != CRYPT_OK) goto cleanup;
+    {
+        int loaded;
+        loaded = library_path ? load_library(library_path) : load_installed_library();
+        if (!loaded) {
+            fprintf(stderr, "mpemtrans: cryptlib could not be loaded; specify --library with the absolute path to a compatible library.\n");
+            goto cleanup;
+        }
+    }
+    if (api.init() != CRYPT_OK) goto cleanup;
     initialized = 1;
     if (!supported_library()) goto cleanup;
     stage = "RSA context import";
