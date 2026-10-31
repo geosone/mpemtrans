@@ -1,5 +1,7 @@
 """Synthetic certificates only; caller supplies isolated test libraries."""
 import os
+import base64
+import hashlib
 import pathlib
 import shutil
 import secrets
@@ -90,6 +92,38 @@ with tempfile.TemporaryDirectory(prefix='mpemtrans-test-') as directory:
         legacy_command[legacy_command.index('--password-file') + 1] = str(legacy_password)
         legacy_command[legacy_command.index('--out') + 1] = str(root / ('legacy-' + str(index) + '.p15'))
         subprocess.run(legacy_command, check=True)
+        profile = root / ('native-' + str(index) + '.profile.ini')
+        captured_password = secrets.token_hex(3)
+        profile_text = '\n'.join([
+            '[Profile]', 'SchemaVersion=1', 'MysticVersion=Synthetic test',
+            'MisSHA256=' + '0' * 64,
+            'CryptlibSHA256=' + hashlib.sha256(pathlib.Path(library).read_bytes()).hexdigest(),
+            'KeyLabelBase64=' + base64.b64encode(b'ssl_cert').decode(),
+            'KeyPasswordBase64=' + base64.b64encode(captured_password.encode()).decode(), '',
+        ])
+        profile.write_text(profile_text)
+        profile.chmod(0o600)
+        configured = command.copy()
+        for option in ['--label', '--password-file']:
+            position = configured.index(option)
+            del configured[position:position + 2]
+        profile_output = root / ('profile-' + str(index) + '.p15')
+        configured[configured.index('--out') + 1] = str(profile_output)
+        configured += ['--profile', str(profile)]
+        subprocess.run(configured, check=True)
+        configured[configured.index('--out') + 1] = str(root / ('bad-profile-' + str(index) + '.p15'))
+        for malformed in [profile_text + 'SchemaVersion=1\n', profile_text.replace('KeyLabelBase64=', 'Unknown='), profile_text.replace('[Profile]', '[Unknown]')]:
+            profile.write_text(malformed)
+            result = subprocess.run(configured, capture_output=True)
+            assert result.returncode != 0
+            assert captured_password.encode() not in result.stdout + result.stderr
+        profile.write_text(profile_text)
+        conflict = configured + ['--label', 'conflicting']
+        assert subprocess.run(conflict, capture_output=True).returncode != 0
+        if os.name != 'nt':
+            profile.chmod(0o644)
+            assert subprocess.run(configured, capture_output=True).returncode != 0
+            profile.chmod(0o600)
         before = output.read_bytes()
         result = subprocess.run(command, capture_output=True)
         assert result.returncode != 0 and output.read_bytes() == before
@@ -101,4 +135,4 @@ with tempfile.TemporaryDirectory(prefix='mpemtrans-test-') as directory:
         assert result.returncode != 0 and not mismatch.exists()
         assert password.read_bytes() not in result.stdout + result.stderr
         assert not list(root.glob('.mpemtrans-*'))
-print('PASS synthetic RSA single/fullchain conversion, encrypted PKCS8/reopen, owner-only output, overwrite refusal, key mismatch and staging cleanup for all supplied libraries.')
+print('PASS synthetic RSA single/fullchain conversion, encrypted PKCS8/reopen, owner-only output, overwrite refusal, protected profile parsing, conflicting/unsafe profile refusal, key mismatch and staging cleanup for all supplied libraries.')

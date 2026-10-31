@@ -173,6 +173,78 @@ static int password_file(const char *path, char output[257]) {
     return 1;
 }
 
+/* Setup profiles contain encoded native interface values, never application
+ * defaults. Base64 preserves INI syntax; it is not encryption. File protection
+ * is therefore mandatory. Metadata hashes record the observed native build. */
+static int decode_profile_value(const char *encoded, char *output, size_t maximum) {
+    unsigned char decoded[260];
+    size_t length = strlen(encoded), i;
+    int count;
+    if (!length || length % 4 || length > 344) return 0;
+    for (i = 0; i < length; i++) {
+        unsigned char c = (unsigned char)encoded[i];
+        if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+              (c >= '0' && c <= '9') || c == '+' || c == '/' ||
+              (c == '=' && i >= length - 2))) return 0;
+    }
+    count = EVP_DecodeBlock(decoded, (const unsigned char *)encoded, (int)length);
+    if (count < 0) return 0;
+    if (encoded[length - 1] == '=') count--;
+    if (encoded[length - 2] == '=') count--;
+    if (count < 1 || (size_t)count > maximum) return 0;
+    for (i = 0; i < (size_t)count; i++) if (decoded[i] < 32 || decoded[i] > 126) return 0;
+    memcpy(output, decoded, (size_t)count);
+    output[count] = 0;
+    OPENSSL_cleanse(decoded, sizeof(decoded));
+    return 1;
+}
+
+static int profile_file(const char *path, char label[65], char password[257]) {
+    FILE *file = fopen(path, "rb");
+    struct stat info;
+    char line[1024];
+    unsigned seen = 0;
+    int section = 0, valid = 0;
+    if (!file) return 0;
+    if (fstat(fileno(file), &info) || !S_ISREG(info.st_mode) || info.st_size > 16384) goto cleanup;
+#ifndef _WIN32
+    if (info.st_mode & 0077) goto cleanup;
+#endif
+    while (fgets(line, sizeof(line), file)) {
+        size_t length = strlen(line);
+        char *value;
+        unsigned bit;
+        if (length == sizeof(line) - 1 && line[length - 1] != '\n') goto cleanup;
+        while (length && (line[length - 1] == '\n' || line[length - 1] == '\r')) line[--length] = 0;
+        if (!length || line[0] == ';' || line[0] == '#') continue;
+        if (!strcmp(line, "[Profile]")) { if (section) goto cleanup; section = 1; continue; }
+        if (!section || !(value = strchr(line, '='))) goto cleanup;
+        *value++ = 0;
+        if (!strcmp(line, "SchemaVersion")) {
+            bit = 1; if (strcmp(value, "1")) goto cleanup;
+        } else if (!strcmp(line, "KeyLabelBase64")) {
+            bit = 2; if (!decode_profile_value(value, label, 64)) goto cleanup;
+        } else if (!strcmp(line, "KeyPasswordBase64")) {
+            bit = 4; if (!decode_profile_value(value, password, 256)) goto cleanup;
+        } else if (!strcmp(line, "MysticVersion")) {
+            bit = 8; if (!*value || strlen(value) > 64) goto cleanup;
+        } else if (!strcmp(line, "MisSHA256") || !strcmp(line, "CryptlibSHA256")) {
+            size_t i;
+            bit = !strcmp(line, "MisSHA256") ? 16 : 32;
+            if (strlen(value) != 64) goto cleanup;
+            for (i = 0; i < 64; i++) if (!((value[i] >= '0' && value[i] <= '9') ||
+                (value[i] >= 'a' && value[i] <= 'f'))) goto cleanup;
+        } else goto cleanup;
+        if (seen & bit) goto cleanup;
+        seen |= bit;
+    }
+    valid = !ferror(file) && seen == 63;
+cleanup:
+    OPENSSL_cleanse(line, sizeof(line));
+    fclose(file);
+    return valid;
+}
+
 static int pem_password(char *buffer, int size, int writing, void *value) {
     const char *password = value;
     size_t length = password ? strlen(password) : 0;
@@ -292,6 +364,8 @@ static int publish_output(const char *temporary, const char *output) {
 int main(int argc, char **argv) {
     const char *library_path = NULL, *key_path = NULL, *cert_path = NULL;
     const char *output = NULL, *label = NULL, *password_path = NULL, *input_password_path = NULL;
+    const char *profile_path = NULL;
+    char profile_label[65] = {0};
     char password[257] = {0}, input_password[257] = {0};
     char directory[4096] = {0}, temporary[4096] = {0};
     unsigned char random_bytes[16], *cert_data = NULL;
@@ -313,7 +387,7 @@ int main(int argc, char **argv) {
 #endif
     memset(&components, 0, sizeof(components));
     if (argc == 2 && !strcmp(argv[1], "--help")) {
-        puts("mpemtrans [--library ABSOLUTE_LIBRARY] --key PEM --cert FULLCHAIN_PEM --out NEW_KEYSET --label NAME --password-file FILE [--input-password-file FILE]");
+        puts("mpemtrans [--library ABSOLUTE_LIBRARY] --key PEM --cert FULLCHAIN_PEM --out NEW_KEYSET (--profile INI | --label NAME --password-file FILE) [--input-password-file FILE]");
         puts("Linux: searches beside the executable, then through the system loader. Windows: searches beside the EXE, then the Windows system directory.");
         puts("RSA 2048-4096; PKCS#1/PKCS#8 input; cryptlib 3.4.5 and 3.4.9 profiles. No existing output is replaced.");
         return 0;
@@ -325,14 +399,22 @@ int main(int argc, char **argv) {
         else OPTION("--key", key_path)
         else OPTION("--cert", cert_path)
         else OPTION("--out", output)
+        else OPTION("--profile", profile_path)
         else OPTION("--label", label)
         else OPTION("--password-file", password_path)
         else OPTION("--input-password-file", input_password_path)
         else goto cleanup;
 #undef OPTION
     }
-    if (!key_path || !cert_path || !output || !label || !password_path ||
-        !strlen(label) || strlen(label) > 64 || strlen(output) > 3800) goto cleanup;
+    if (!key_path || !cert_path || !output || strlen(output) > 3800 ||
+        (profile_path && (label || password_path)) ||
+        (!profile_path && (!label || !password_path))) goto cleanup;
+    if (profile_path) {
+        stage = "protected setup profile";
+        if (!profile_file(profile_path, profile_label, password)) goto cleanup;
+        label = profile_label;
+    }
+    if (!strlen(label) || strlen(label) > 64) goto cleanup;
 #ifndef _WIN32
     if (library_path && library_path[0] != '/') {
         fprintf(stderr, "mpemtrans: --library requires an absolute path.\n");
@@ -342,7 +424,7 @@ int main(int argc, char **argv) {
     stage = "existing output refusal";
     if (!stat(output, &existing)) goto cleanup;
     stage = "protected password input";
-    if (!password_file(password_path, password) ||
+    if ((!profile_path && !password_file(password_path, password)) ||
         (input_password_path && !password_file(input_password_path, input_password))) goto cleanup;
     stage = "private key input (RSA only)";
     file = fopen(key_path, "rb");
@@ -428,6 +510,7 @@ cleanup:
     EVP_PKEY_free(key);
     OPENSSL_free(cert_data);
     OPENSSL_cleanse(&components, sizeof(components));
+    OPENSSL_cleanse(profile_label, sizeof(profile_label));
     OPENSSL_cleanse(password, sizeof(password));
     OPENSSL_cleanse(input_password, sizeof(input_password));
 #ifdef _WIN32

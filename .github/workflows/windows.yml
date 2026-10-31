@@ -45,6 +45,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'CMake configuration failed.' }
           cmake --build build --config Release
           if ($LASTEXITCODE -ne 0) { throw 'Compilation failed.' }
+      - name: Build setup-only capture library
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake -S setup -B build/setup -A '${{ matrix.generator }}' "-DCRYPTLIB_INCLUDE_DIR=$pwd/build-tools/cryptlib"
+          if ($LASTEXITCODE -ne 0) { throw 'Capture library configuration failed.' }
+          cmake --build build/setup --config Release
+          if ($LASTEXITCODE -ne 0) { throw 'Capture library compilation failed.' }
+          New-Item -ItemType Directory -Path build/profile-tools | Out-Null
+          Copy-Item build/setup/Release/cl*.dll build/profile-tools/
+          Copy-Item setup/capture_windows.ps1 build/profile-tools/
+          Copy-Item setup/README.md build/profile-tools/README.txt
+          Compress-Archive build/profile-tools/* 'build/mpemtrans-profile-tools-windows-${{ matrix.arch }}-development.zip'
       - name: Check imports and prepare portable archive
         shell: pwsh
         run: |
@@ -74,3 +87,4 @@ jobs:
           path: |
             build/mpemtrans-windows-*-development.zip
             build/windows-imports.txt
+            build/mpemtrans-profile-tools-windows-*-development.zip

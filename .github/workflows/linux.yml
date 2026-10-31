@@ -33,9 +33,14 @@ jobs:
           mkdir -p release
           docker run --rm --platform '${{ matrix.platform }}' -v "$PWD:/work" -w /work debian:bookworm-slim sh -ec '
             apt-get update
-            apt-get install -y --no-install-recommends build-essential libssl-dev ca-certificates
+            apt-get install -y --no-install-recommends build-essential libssl-dev ca-certificates python3
             make CRYPTLIB_INCLUDE=/work/build-tools/cryptlib
             ./build/mpemtrans --help
+            python3 setup/generate_proxy.py build-tools/cryptlib/cryptlib.h build/profile-tools
+            cc -std=c11 -O2 -fPIC -shared -Ibuild-tools/cryptlib -Ibuild/profile-tools setup/capture_proxy.c -ldl -pthread -o build/profile-tools/libcl.so
+            cp setup/capture_linux.py build/profile-tools/
+            cp setup/README.md build/profile-tools/README.txt
+            tar -czf release/mpemtrans-profile-tools-linux-${{ matrix.arch }}-development.tar.gz -C build/profile-tools libcl.so capture_linux.py README.txt
             ldd build/mpemtrans > release/linux-dependencies.txt
             mkdir -p release/archive
             cp build/mpemtrans release/archive/
@@ -65,3 +70,4 @@ jobs:
           path: |
             release/mpemtrans-linux-*-development.tar.gz
             release/linux-dependencies.txt
+            release/mpemtrans-profile-tools-linux-*-development.tar.gz

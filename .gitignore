@@ -2,3 +2,7 @@
 /core*
 *.p15
 *.key
+# Profiles/captures are host-local secrets, never source or release assets.
+*.capture
+*.profile.ini
+profile.ini

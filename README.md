@@ -135,3 +135,34 @@ Tool code, builds and tests belong here. Mystic installation/configuration is
 maintained in mysticd; theme artwork belongs to mystic-theme. Release archives
 must contain exactly one executable and README.txt, with checksums and source
 published separately. Windows support is not claimed until native tests pass.
+
+## Locally discovered Mystic profiles
+
+Use the mysticd `mpemtrans/install.ps1` setup step to generate a host-local INI
+from a fresh disposable manufacturer fixture matching the installed MIS binary.
+It uses a setup-only capture library and the explicitly selected real cryptlib.
+No native password or key label is hardcoded in the converter or installer.
+The setup library is not installed over a real libcl and is not used for normal
+conversion. See [setup assets](setup/README.md).
+
+The initializer defaults to a plan; `-Apply` creates the private local profile.
+Existing profile files are refused so an operator can preserve them before
+regeneration. Installed DAT files and services are not changed. The extraction
+of native values has no credential/version lookup table, while preparation of
+the disposable DAT fixture still requires qualified record layouts.
+
+After setup, omit the manual label and output-password arguments:
+
+```sh
+./mpemtrans --profile /private/path/profile.ini --key privkey.pem \
+  --cert fullchain.pem --out new-server.cert
+```
+
+`--profile` cannot be combined with `--label` or `--password-file`. A separate
+`--input-password-file` may still decrypt an encrypted input PEM. Linux rejects
+a profile accessible by group/others; Windows setup uses protected file ACLs.
+Base64 fields preserve the original value bytes in INI syntax; they are not
+encryption. Profile metadata records the measured version and binary hashes
+for provenance and must be regenerated after a native build/interface change.
+Never commit generated profiles or capture files. The normal two-file converter
+archives remain unchanged in structure; setup tools are separate installer assets.
