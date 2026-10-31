@@ -9,8 +9,11 @@ Status: repository and requirements prepared; no qualified executable release ye
 Windows releases use ZIP archives; Linux releases use tar.gz archives. Extract
 beside Mystic in `/opt/mystic` or `C:\Mystic`. No MSI, DEB, system service,
 global PATH change or machine-wide installation is planned for this small tool.
-Each release must include architecture identification, checksums and its runtime
-requirements. There is no release artifact until native tests pass.
+Each archive contains exactly one native executable and README.txt. Embed
+profiles/data in the program; do not ship script wrappers, helper DLLs or
+sidecar configuration. Identify architecture and runtime/library requirements
+in the README. Checksums are published beside the archive on GitHub.
+There is no release artifact until native tests pass.
 
 ## Requirements
 
@@ -20,6 +23,7 @@ requirements. There is no release artifact until native tests pass.
 - Do not claim that renaming a PEM or PKCS#12 file converts it to a cryptlib keyset.
 - Protect output key material; never print private keys or passwords.
 - Stage new output, reopen it through the target cryptlib and test a native Mystic handshake before activation.
+- Support both the stable old cryptlib and the newer cryptlib through explicitly selected and verified library/version profiles. Attribute numbers and API differences must not be assumed interchangeable.
 - No overwriting production certificates or deployment/restart side effects.
 
 ## Repository boundary
