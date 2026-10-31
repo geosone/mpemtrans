@@ -1,6 +1,6 @@
-# pemtrans
+# mpemtrans
 
-Certificate conversion for Mystic-compatible cryptlib keysets.
+Mystic PEM certificate conversion for cryptlib-compatible keysets.
 
 Status: repository and requirements prepared; no qualified executable release yet.
 

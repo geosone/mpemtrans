@@ -1,4 +1,4 @@
-# Upstream conversion audit
+# mpemtrans upstream conversion audit
 
 Source: https://github.com/amenonsen/pemtrans (preserved Git history).
 The explicit permission in pemtrans.c permits use, modification and distribution
