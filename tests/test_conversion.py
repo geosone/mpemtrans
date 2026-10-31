@@ -83,6 +83,13 @@ with tempfile.TemporaryDirectory(prefix='mpemtrans-test-') as directory:
         fullchain_command[fullchain_command.index('--out') + 1] = str(root / ('fullchain-' + str(index) + '.p15'))
         fullchain_command += ['--input-password-file', str(password)]
         subprocess.run(fullchain_command, check=True)
+        legacy_password = root / ('legacy-password-' + str(index))
+        legacy_password.write_text(secrets.token_hex(3))
+        legacy_password.chmod(0o600)
+        legacy_command = command.copy()
+        legacy_command[legacy_command.index('--password-file') + 1] = str(legacy_password)
+        legacy_command[legacy_command.index('--out') + 1] = str(root / ('legacy-' + str(index) + '.p15'))
+        subprocess.run(legacy_command, check=True)
         before = output.read_bytes()
         result = subprocess.run(command, capture_output=True)
         assert result.returncode != 0 and output.read_bytes() == before

@@ -165,7 +165,10 @@ static int password_file(const char *path, char output[257]) {
     fclose(file);
     if (memchr(output, '\0', count)) return 0;
     while (count && (output[count - 1] == '\n' || output[count - 1] == '\r')) count--;
-    if (count < 8 || memchr(output, '\n', count) || memchr(output, '\r', count)) return 0;
+    /* Mystic A49 uses a short fixed keyset password. Read nonempty files;
+     * cryptlib enforces its own output-keyset password constraints. PEM input
+     * passwords must not be rejected by an unrelated keyset-length policy. */
+    if (!count || memchr(output, '\n', count) || memchr(output, '\r', count)) return 0;
     output[count] = 0;
     return 1;
 }

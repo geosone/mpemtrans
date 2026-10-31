@@ -7,7 +7,9 @@ permission is retained in the C header and LICENSE.
 Status: development prototype. The Linux converter has created and reopened
 synthetic RSA keysets with cryptlib 3.4.5 and the tested generic 3.4.9.6 build.
 Native Windows qualification and native Mystic handshake tests
-are tracked separately in each release report. Synthetic single-certificate,
+are tracked separately in each release report. An isolated Linux Mystic A49
+BinkP TLS 1.2 test has verified the exact converted certificate, CA/hostname
+validation and encrypted BinkP framing with cryptlib 3.4.5. Synthetic single-certificate,
 fullchain and encrypted PKCS#8 conversion tests are included in the test suite. Published preview archives are not production-qualified releases.
 
 ## What it does
@@ -35,7 +37,11 @@ Mystic, normally `/opt/mystic`, or another chosen location. No DEB installation,
 PATH update or separate manpage is needed. The target cryptlib is an external
 prerequisite; it is not bundled or replaced by this tool.
 
-Prepare an output-password file containing a password of at least eight bytes.
+Prepare a nonempty output-password file. Use a strong password for general
+keysets; cryptlib enforces its supported password constraints. Mystic A49's
+native keyset interface expects a fixed legacy label/password, so an arbitrary
+label or password produces a keyset Mystic cannot open. Use the matching Mystic
+profile when preparing `data/ssl.cert`; no vendor password is printed here.
 Protect it so only its owner can read it (`chmod 600 output-password.txt`). Do
 not put the password directly on the command line.
 
