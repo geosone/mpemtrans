@@ -120,8 +120,9 @@ The selected cryptlib is loaded at runtime, not linked into the program.
 
 The old Unix manpage has been retired from the active root. Its content is
 retained only as a source reference under `docs/upstream-manpage-reference.txt`;
-this README replaces it for both platforms. Original upstream pemtrans.c is
-preserved as a historical reference; the maintained implementation is mpemtrans.c.
+this README replaces it for both platforms. The maintained implementation stays in the original `pemtrans.c` file.
+Its upstream version and subsequent changes remain available through Git history;
+the executable is named `mpemtrans`.
 
 Tool code, builds and tests belong here. Mystic installation/configuration is
 maintained in mysticd; theme artwork belongs to mystic-theme. Release archives
