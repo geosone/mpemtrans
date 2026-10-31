@@ -1,35 +1,113 @@
 # mpemtrans
 
-Mystic PEM certificate conversion for cryptlib-compatible keysets.
+Mystic PEM certificate conversion, based on
+[amenonsen/pemtrans](https://github.com/amenonsen/pemtrans). The original explicit
+permission is retained in the C header and LICENSE.
 
-Status: repository and requirements prepared; no qualified executable release yet.
+Status: development prototype. The Linux converter has created and reopened
+synthetic RSA keysets with cryptlib 3.4.5 and the tested generic 3.4.9.6 build.
+Windows qualification, complete chain tests and native Mystic handshake tests
+are still required. There is no production-qualified release yet.
 
-## Distribution
+## What it does
 
-Windows releases use ZIP archives; Linux releases use tar.gz archives. Extract
-beside Mystic in `/opt/mystic` or `C:\Mystic`. No MSI, DEB, system service,
-global PATH change or machine-wide installation is planned for this small tool.
-Each archive contains exactly one native executable and README.txt. Embed
-profiles/data in the program; do not ship script wrappers, helper DLLs or
-sidecar configuration. Identify architecture and runtime/library requirements
-in the README. Checksums are published beside the archive on GitHub.
-There is no release artifact until native tests pass.
+The converter reads a PEM private key and a matching certificate/full chain,
+imports them through the explicitly selected cryptlib and creates a new PKCS#15
+keyset. It reopens that keyset and retrieves the private key before publishing
+it. Existing output files are never replaced. The tool does not install or
+restart Mystic, obtain certificates, or change server configuration.
 
-## Requirements
+Current key scope: RSA, 2048–4096 bits; PKCS#1 or PKCS#8 private-key input.
+ECDSA private keys are rejected in this prototype. An RSA private key and its
+matching certificate are required. Issuer relationships and certificate dates
+are checked; this is not a substitute for validating public CA trust.
 
-- Accept certificate, chain and matching private key from an external issuer.
-- Target the actual Mystic/cryptlib 3.4.5 keyset format after qualification.
-- Verify key/certificate matching, chain handling and RSA/ECDSA support explicitly.
-- Do not claim that renaming a PEM or PKCS#12 file converts it to a cryptlib keyset.
-- Protect output key material; never print private keys or passwords.
-- Stage new output, reopen it through the target cryptlib and test a native Mystic handshake before activation.
-- Support both the stable old cryptlib and the newer cryptlib through explicitly selected and verified library/version profiles. Attribute numbers and API differences must not be assumed interchangeable.
-- No overwriting production certificates or deployment/restart side effects.
+The 3.4.5 and 3.4.9.6 public headers were compared for the used API constants and
+RSA structure layout. Session attributes are not used. A newer cryptlib being
+usable by this converter does not prove it is compatible with an old Mystic
+binary. Always select the intended library explicitly.
 
-## Repository boundary
+## Linux
 
-The program, its builds and tests live here. Installation/configuration integration
-belongs to the separate mysticd repository. BBS artwork and presentation assets
-belong to mystic-theme. Existing live data must not be changed without explicit
-operator approval. License: the original permissive notice in pemtrans.c and LICENSE.
-See UPSTREAM-REVIEW.md for the required modernization before release.
+The planned tar.gz contains only `mpemtrans` and `README.txt`. Extract beside
+Mystic, normally `/opt/mystic`, or another chosen location. No DEB installation,
+PATH update or separate manpage is needed. The target cryptlib is an external
+prerequisite; it is not bundled or replaced by this tool.
+
+Prepare an output-password file containing a password of at least eight bytes.
+Protect it so only its owner can read it (`chmod 600 output-password.txt`). Do
+not put the password directly on the command line.
+
+```sh
+./mpemtrans \
+  --library /absolute/path/to/libcl.so.3.4.5 \
+  --key privkey.pem \
+  --cert fullchain.pem \
+  --out server-new.p15 \
+  --label ssl_cert \
+  --password-file output-password.txt
+```
+
+The library path must be absolute. Select a tested newer cryptlib with the same
+option when preparing a keyset for that version. If an input PEM is encrypted,
+provide its separate protected file with `--input-password-file FILE`; otherwise
+no interactive prompt is issued.
+
+## Windows
+
+The planned ZIP contains only `mpemtrans.exe` and `README.txt`. Extract into a
+chosen short ASCII path, normally `C:\Mystic`. There is no MSI or global PATH
+change. Use the cryptlib DLL matching the executable architecture; existing
+Mystic x86/x64 builds conventionally use `cl32.dll` / `cl64.dll` respectively.
+Do not copy a different DLL over a working Mystic library to test this tool.
+
+Example from PowerShell:
+
+```powershell
+./mpemtrans.exe --library 'C:\Mystic\cl64.dll' --key 'privkey.pem' --cert 'fullchain.pem' --out 'server-new.p15' --label 'ssl_cert' --password-file 'output-password.txt'
+```
+
+Create the password file through your preferred secure editor and restrict its
+ACL to the intended account, SYSTEM and administrators. Passwords are read from
+files, not printed or included in process arguments. The prototype uses Windows
+ANSI file APIs, so short ASCII file paths are required for now.
+
+## Output and checks
+
+A private temporary directory is created beside the destination, and the new
+keyset is written there. Linux uses owner-only permissions; Windows uses an
+explicit protected directory ACL. The completed keyset is reopened through the
+selected cryptlib before publication under the requested name without replacing
+an existing file. Source keys and certificates are not changed.
+
+A successful conversion exits with 0. Failure exits nonzero and reports the
+operation stage without printing private key material or passwords. Keep the
+current server certificate until a separate native Mystic test succeeds. Do
+not infer a usable TLS configuration merely from a .p15 filename.
+
+## Source and distribution
+
+`make CRYPTLIB_INCLUDE=/path/to/headers` builds a Linux development executable.
+Linux builds link the distribution's OpenSSL 3 libcrypto dynamically. Build on
+the oldest supported distribution and test the identical executable on all
+supported targets; the OpenSSL major version alone does not qualify glibc or
+symbol requirements.
+
+Windows builds link OpenSSL 3 libcrypto and the MSVC runtime statically. No
+separate OpenSSL installation or OpenSSL DLL is required. The Windows workflow
+uses vcpkg's x86-windows-static / x64-windows-static triplets, inspects executable
+imports and assembles the applicable dependency notices into README.txt.
+Bundled OpenSSL security fixes require rebuilding and redistributing the EXE.
+The external cryptlib DLL is still required. This build arrangement does not
+replace native conversion and Mystic handshake qualification.
+The selected cryptlib is loaded at runtime, not linked into the program.
+
+The old Unix manpage has been retired from the active root. Its content is
+retained only as a source reference under `docs/upstream-manpage-reference.txt`;
+this README replaces it for both platforms. Original upstream pemtrans.c is
+preserved as a historical reference; the maintained implementation is mpemtrans.c.
+
+Tool code, builds and tests belong here. Mystic installation/configuration is
+maintained in mysticd; theme artwork belongs to mystic-theme. Release archives
+must contain exactly one executable and README.txt, with checksums and source
+published separately. Windows support is not claimed until native tests pass.

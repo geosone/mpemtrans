@@ -1,19 +1,13 @@
-## Tell the compiler where to find <openssl/pem.h> and <cryptlib.h>
-#INCLUDES = -I/usr/local/openssl/include -I/usr/local/include
+CC ?= cc
+CRYPTLIB_INCLUDE ?= /usr/include
+CFLAGS ?= -O2 -Wall -Wextra -Wno-deprecated-declarations -fstack-protector-strong
+CPPFLAGS += -I$(CRYPTLIB_INCLUDE)
+LDLIBS ?= -lcrypto -ldl -pthread
 
-## Tell the compiler where to find the OpenSSL libraries.
-#LIBS = -L/usr/local/openssl/lib
-
-## Where is libcl.a?
-#CRYPTLIB = /usr/local/lib/libcl.a
-
-## Cryptlib is usually linked with these libraries:
-EXTRA_LIBS = -lresolv -lpthread
-
-## Remember to change theese to suit your environment!!
-INCLUDES = -I/home/ams/build/cryptlib
-CRYPTLIB = /home/ams/build/cryptlib/libcl.a
-
-pemtrans: pemtrans.c
-	cc $(INCLUDES) $(LIBS) -o pemtrans pemtrans.c $(CRYPTLIB) \
-	-lcrypto -lssl $(EXTRA_LIBS)
+.PHONY: all clean
+all: build/mpemtrans
+build/mpemtrans: mpemtrans.c
+	mkdir -p build
+	$(CC) -std=c11 $(CPPFLAGS) $(CFLAGS) $< $(LDFLAGS) $(LDLIBS) -o $@
+clean:
+	rm -rf build

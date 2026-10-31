@@ -1,0 +1,19 @@
+====== mpemtrans ======
+
+PEM-Schlüssel und Zertifikate in ein von Mystic nutzbares cryptlib-PKCS#15-Keyset übertragen. Ausgangspunkt ist amenonsen/pemtrans; dessen ausdrückliche Lizenz steht im C-Header.
+
+**Stand:** Konverter-Anpassung in Entwicklung; keine produktive Zertifikatsfreigabe.
+
+[[https://github.com/geosone/mpemtrans|Quellcode und Entwicklung]]
+
+[[:de:projects:mpemtrans|Deutsch]] · [[:en:projects:mpemtrans|English]]
+
+===== Ziel und Grenzen =====
+
+Ein kleines natives Programm für Linux und Windows. Es soll mit der alten cryptlib 3.4.5 und der neueren cryptlib arbeiten, deren API-Unterschiede ausdrücklich geprüft werden. Bibliothek und Keyset-Format dürfen nicht durch Dateiendungen erraten werden.
+
+Geplant sind Prüfung von Schlüssel/Zertifikat und Kette, geschützte Passworteingabe sowie erneutes Öffnen des erzeugten Keysets mit der Zielbibliothek. Bestehende Zertifikate werden nicht automatisch ersetzt und produktive Dienste nicht neu gestartet. Unterstützung einzelner Algorithmen und nativer Mystic-Handshakes muss separat nachgewiesen werden.
+
+Die spätere Auslieferung besteht aus einer ausführbaren Datei und README.txt: ZIP für Windows, tar.gz für Linux. Keine zusätzliche Manpage, kein MSI/DEB und kein systemweiter PATH-Eintrag.
+
+[[:de:projects:start|Zur Projektübersicht]]

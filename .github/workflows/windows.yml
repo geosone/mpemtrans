@@ -1,0 +1,76 @@
+name: Windows static OpenSSL
+on:
+  push:
+    paths-ignore: ['docs/**', '**.md']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86
+            generator: Win32
+          - arch: x64
+            generator: x64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: microsoft/vcpkg
+          ref: 9a5dfef5d1a0438a7d24856a85bd60f309d355e9
+          path: build-tools/vcpkg
+      - uses: actions/checkout@v4
+        with:
+          repository: cryptlib/cryptlib
+          ref: 6d94f880897ceaa1f833a2f94df51321f983b87e
+          path: build-tools/cryptlib
+      - name: Build static OpenSSL and executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $triplet = '${{ matrix.arch }}-windows-static'
+          & ./build-tools/vcpkg/bootstrap-vcpkg.bat -disableMetrics
+          if ($LASTEXITCODE -ne 0) { throw 'vcpkg bootstrap failed.' }
+          & ./build-tools/vcpkg/vcpkg.exe install "openssl:$triplet" --disable-metrics
+          if ($LASTEXITCODE -ne 0) { throw 'OpenSSL build failed.' }
+          $toolchain = "$pwd/build-tools/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          cmake -S . -B build -A '${{ matrix.generator }}' "-DCMAKE_TOOLCHAIN_FILE=$toolchain" "-DVCPKG_TARGET_TRIPLET=$triplet" "-DCRYPTLIB_INCLUDE_DIR=$pwd/build-tools/cryptlib"
+          if ($LASTEXITCODE -ne 0) { throw 'CMake configuration failed.' }
+          cmake --build build --config Release
+          if ($LASTEXITCODE -ne 0) { throw 'Compilation failed.' }
+      - name: Check imports and prepare portable archive
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $installation = & $vswhere -latest -property installationPath
+          $dumpbin = Get-ChildItem "$installation/VC/Tools/MSVC/*/bin/Hostx64/x64/dumpbin.exe" | Sort-Object FullName | Select-Object -Last 1
+          $imports = & $dumpbin.FullName /DEPENDENTS build/Release/mpemtrans.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Import inspection failed.' }
+          $imports | Set-Content build/windows-imports.txt
+          if (($imports -join "`n") -match '(?i)(libcrypto|libssl|vcruntime|msvcp)[^\s]*\.dll') {
+              throw 'Unexpected dynamic OpenSSL or MSVC runtime dependency.'
+          }
+          & ./build/Release/mpemtrans.exe --help
+          if ($LASTEXITCODE -ne 0) { throw 'Executable smoke test failed.' }
+          New-Item -ItemType Directory -Path build/archive | Out-Null
+          Copy-Item build/Release/mpemtrans.exe build/archive/
+          $triplet = '${{ matrix.arch }}-windows-static'
+          $notice = Get-Content "build-tools/vcpkg/installed/$triplet/share/openssl/copyright" -Raw
+          $readme = Get-Content README.md -Raw
+          $license = Get-Content LICENSE -Raw
+          "$readme`n`nTOOL LICENSE`n$license`n`nOPENSSL NOTICES`n$notice" | Set-Content build/archive/README.txt -Encoding utf8
+          Compress-Archive build/archive/* 'build/mpemtrans-windows-${{ matrix.arch }}-development.zip'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mpemtrans-windows-${{ matrix.arch }}-development
+          path: |
+            build/mpemtrans-windows-*-development.zip
+            build/windows-imports.txt

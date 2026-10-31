@@ -1,0 +1,4 @@
+/build/
+/core*
+*.p15
+*.key
