@@ -31,4 +31,5 @@ There is no release artifact until native tests pass.
 The program, its builds and tests live here. Installation/configuration integration
 belongs to the separate mysticd repository. BBS artwork and presentation assets
 belong to mystic-theme. Existing live data must not be changed without explicit
-operator approval. License: GPL-3.0-only.
+operator approval. License: the original permissive notice in pemtrans.c and LICENSE.
+See UPSTREAM-REVIEW.md for the required modernization before release.
